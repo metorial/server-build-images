@@ -1,0 +1,17 @@
+{
+  "name": "js-lambda-build-image",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.2",
+    "jose": "^6.1.0",
+    "zod": "3"
+  }
+}

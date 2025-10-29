@@ -1,24 +1,29 @@
-FROM node:20-bookworm
+# Use Node.js base image
+FROM node:24-slim
 
-# Install system tools and AWS CLI via apt
-RUN apt-get update && \
-  apt-get install -y --no-install-recommends \
-  bash \
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
   curl \
   unzip \
-  zip \
-  python3 \
-  python3-pip \
+  file \
   awscli \
-  ca-certificates && \
-  rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/*
 
-# Install JS bundler
-RUN npm install -g @vercel/ncc typescript
+# Install ncc globally
+RUN npm install -g @vercel/ncc
 
-WORKDIR /workspace
+# Create working directories
+RUN mkdir -p /workspace /boot
 
+# Copy the boot scripts into the image
+COPY boot /boot
+
+# Copy the entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+# Set working directory
+WORKDIR /workspace
+
+# Set the entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
