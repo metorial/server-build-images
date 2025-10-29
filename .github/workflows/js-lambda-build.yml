@@ -21,7 +21,7 @@ jobs:
     env:
       SERVICE_NAME: js-lambda-build-image-v1
       IMAGE_NAME: metorial/js-lambda-build-image-v1
-      BUILD_DIR: ./js-lambda-build-image/Dockerfile
+      BUILD_DIR: ./js-lambda-build-image
       GHCR_REGISTRY: ghcr.io
       ECR_REGISTRY: public.ecr.aws/z8i8n6f7
       CONTAINER_TAG: mtbld-${{ github.ref_name }}-${{ github.sha }}
