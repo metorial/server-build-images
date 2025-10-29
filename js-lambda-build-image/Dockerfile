@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
   && rm -rf /var/lib/apt/lists/*
 
 # Install ncc globally
-RUN npm install -g @vercel/ncc
+RUN npm install -g @vercel/ncc typescript
 
 # Create working directories
 RUN mkdir -p /workspace /boot
