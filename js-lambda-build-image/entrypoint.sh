@@ -12,9 +12,30 @@ fi
 echo "Starting Metorial JS Lambda Build Process"
 
 echo "Downloading source zip from ${ZIP_URL}"
-curl -L "$ZIP_URL" -o /tmp/source.zip
 
-echo "Unpacking..."
+# Download with error handling
+HTTP_CODE=$(curl -L "$ZIP_URL" -o /tmp/source.zip -w "%{http_code}" -s)
+
+echo "HTTP Status Code: $HTTP_CODE"
+echo "Downloaded file size: $(stat -c%s /tmp/source.zip 2>/dev/null || echo 'stat failed')"
+
+if [ "$HTTP_CODE" != "200" ]; then
+  echo "Download failed with HTTP status: $HTTP_CODE"
+  echo "Response content:"
+  cat /tmp/source.zip
+  exit 1
+fi
+
+# Verify it's a valid zip file
+if ! file /tmp/source.zip | grep -q "Zip archive"; then
+  echo "Downloaded file is not a valid ZIP archive:"
+  file /tmp/source.zip
+  echo "First 500 bytes:"
+  head -c 500 /tmp/source.zip
+  exit 1
+fi
+
+echo "Unpacking source code..."
 mkdir -p /workspace/src
 unzip -q /tmp/source.zip -d /workspace/src
 
@@ -26,7 +47,8 @@ ENTRYPOINTS=(
   "app.ts" "app.js" "app.cjs" "app.mjs"
   "main.ts" "main.js" "main.cjs" "main.mjs"
   "server.ts" "server.js" "server.cjs" "server.mjs"
-  "boot.ts" "boot.js" "boot.cjs" "boot.mjs"
+  "handler.ts" "handler.js" "handler.cjs" "handler.mjs"
+  "lambda.ts" "lambda.js" "lambda.cjs" "lambda.mjs"
   "mcp.ts" "mcp.js" "mcp.cjs" "mcp.mjs"
 )
 
@@ -40,6 +62,7 @@ done
 
 if [ -z "$ENTRY" ]; then
   echo "ERROR: No valid entrypoint found."
+  echo "Searched for: ${ENTRYPOINTS[*]}"
   exit 1
 fi
 
@@ -58,18 +81,51 @@ else
   npm init -y
 fi
 
+echo "Installing TypeScript..."
 npm install typescript
 
-# Build with ncc
+# Get absolute path to the entry point
+ENTRY_ABSOLUTE="/workspace/src/$ENTRY"
+
+echo "Entry point absolute path: $ENTRY_ABSOLUTE"
+
+# Copy boot script and replace placeholder with actual entry point
+echo "Preparing boot script..."
+mkdir -p /workspace/boot-temp
+cp /boot /workspace/boot-temp
+
+# Replace the $ENTRY_POINT$ placeholder with the actual path
+sed -i "s|require('\\$\\$ENTRY_POINT\\$\\)|require('$ENTRY_ABSOLUTE')|g" /workspace/boot-temp/boot.ts
+
+echo "Boot script prepared with entry point: $ENTRY_ABSOLUTE"
+
+# Build the boot script with ncc (this will bundle everything together)
+echo "Building Lambda with ncc..."
 mkdir -p /workspace/dist
-ncc build "$ENTRY" -o /workspace/dist
+ncc build /workspace/boot-temp/boot.ts -o /workspace/dist -m
 
-# Zip the dist folder
+# Create package.json for Lambda runtime
+echo "Creating package.json..."
+cat > /workspace/package.json << 'EOF'
+{
+  "name": "lambda-function",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "type": "commonjs"
+}
+EOF
+
+# Zip the Lambda package
+echo "Creating Lambda deployment package..."
 cd /workspace
-zip -qr artifact.zip dist
+zip -qr artifact.zip dist package.json
 
-# Upload to S3 with tagging
+echo "Package contents:"
+unzip -l artifact.zip
+
+# Upload to S3
 echo "Uploading artifact.zip to s3://${S3_BUCKET}/${S3_KEY}..."
-aws s3 cp artifact.zip "s3://${S3_BUCKET}/${S3_KEY}"
+aws s3 cp artifact.zip "s3://${S3_BUCKET}/${S3_KEY}" --tagging "temporary=true"
 
 echo "Build complete and uploaded successfully."
+echo "Lambda handler: dist/index.handler"
