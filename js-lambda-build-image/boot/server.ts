@@ -1,8 +1,8 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { ClientCapabilities, Notification } from '@modelcontextprotocol/sdk/types.js';
-import { delay } from './delay.ts';
-import { DeploymentError } from './error.ts';
-import { createInProcessTransport } from './transport.ts';
+import { delay } from './delay';
+import { DeploymentError } from './error';
+import { createInProcessTransport } from './transport';
 
 interface BootOptions {
   client: {

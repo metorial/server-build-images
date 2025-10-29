@@ -1,4 +1,4 @@
-import { ProgrammablePromise } from './promise.ts';
+import { ProgrammablePromise } from './promise';
 
 export let currentOauth = new ProgrammablePromise();
 globalThis.__metorial_setMcpAuth__ = (v: any) => currentOauth.resolve(v);

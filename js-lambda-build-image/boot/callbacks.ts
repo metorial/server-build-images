@@ -1,4 +1,4 @@
-import { delay } from './delay.ts';
+import { delay } from './delay';
 
 let getCallbacks = async () => {
   let prom = globalThis.__metorial_getCallbackHandler__();

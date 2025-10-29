@@ -106,7 +106,7 @@ cp /tsconfig.json /workspace/tsconfig.json
 # Build the boot script with ncc (this will bundle everything together)
 echo "Building Lambda with ncc..."
 cat > /workspace/src/__metorial_index.ts << 'EOF'
-import './boot/boot.ts';
+import './boot/boot';
 EOF
 
 mkdir -p /workspace/dist
