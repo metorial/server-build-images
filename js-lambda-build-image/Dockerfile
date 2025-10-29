@@ -1,11 +1,23 @@
-FROM node:20-alpine
+FROM node:20-bookworm
 
-# Install dependencies
-RUN apk add --no-cache bash curl unzip zip python3 py3-pip && \
-  pip install awscli && \
-  npm install -g @vercel/ncc
+# Install system tools and AWS CLI via apt
+RUN apt-get update && \
+  apt-get install -y --no-install-recommends \
+  bash \
+  curl \
+  unzip \
+  zip \
+  python3 \
+  python3-pip \
+  awscli \
+  ca-certificates && \
+  rm -rf /var/lib/apt/lists/*
+
+# Install JS bundler
+RUN npm install -g @vercel/ncc
 
 WORKDIR /workspace
+
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
