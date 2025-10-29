@@ -70,6 +70,6 @@ zip -qr artifact.zip dist
 
 # Upload to S3 with tagging
 echo "Uploading artifact.zip to s3://${S3_BUCKET}/${S3_KEY}..."
-aws s3 cp artifact.zip "s3://${S3_BUCKET}/${S3_KEY}" --tagging "temporary=true"
+aws s3 cp artifact.zip "s3://${S3_BUCKET}/${S3_KEY}"
 
 echo "Build complete and uploaded successfully."
