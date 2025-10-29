@@ -20,6 +20,8 @@ COPY boot /boot
 
 # Copy the entrypoint script
 COPY entrypoint.sh /entrypoint.sh
+COPY tsconfig.json /tsconfig.json
+
 RUN chmod +x /entrypoint.sh
 
 # Set working directory

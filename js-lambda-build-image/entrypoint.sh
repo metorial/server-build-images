@@ -99,6 +99,10 @@ sed -i 's|require('\''\$\$ENTRY_POINT\$\$'\'')|require('"'"$ENTRY_ABSOLUTE"'"')|
 
 echo "Boot script prepared with entry point: $ENTRY_ABSOLUTE"
 
+echo "Copy tsconfig.json..."
+cp /tsconfig.json /workspace/boot-temp/tsconfig.json
+cp /tsconfig.json /workspace/tsconfig.json
+
 # Build the boot script with ncc (this will bundle everything together)
 echo "Building Lambda with ncc..."
 mkdir -p /workspace/dist
