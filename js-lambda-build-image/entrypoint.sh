@@ -45,6 +45,21 @@ fi
 
 echo "Detected entrypoint: $ENTRY"
 
+HAS_PACKAGE_JSON=false
+if [ -f "package.json" ]; then
+  HAS_PACKAGE_JSON=true
+fi
+
+if [ "$HAS_PACKAGE_JSON" = true ]; then
+  echo "Installing dependencies from package.json..."
+  npm install
+else
+  echo "No package.json found. Initializing npm project..."
+  npm init -y
+fi
+
+npm install typescript
+
 # Build with ncc
 mkdir -p /workspace/dist
 ncc build "$ENTRY" -o /workspace/dist
