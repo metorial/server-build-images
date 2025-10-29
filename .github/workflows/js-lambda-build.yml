@@ -21,7 +21,7 @@ jobs:
     env:
       SERVICE_NAME: js-lambda-build-image-v1
       IMAGE_NAME: metorial/js-lambda-build-image-v1
-      DOCKERFILE: ./js-lambda-build-image/Dockerfile
+      BUILD_DIR: ./js-lambda-build-image/Dockerfile
       GHCR_REGISTRY: ghcr.io
       ECR_REGISTRY: public.ecr.aws/z8i8n6f7
       CONTAINER_TAG: mtbld-${{ github.ref_name }}-${{ github.sha }}
@@ -78,9 +78,9 @@ jobs:
         id: push
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ env.BUILD_DIR }}
           push: true
-          file: ${{ env.DOCKERFILE }}
+          file: ${{ env.BUILD_DIR }}/Dockerfile
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
