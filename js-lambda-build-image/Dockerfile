@@ -14,7 +14,7 @@ RUN apt-get update && \
   rm -rf /var/lib/apt/lists/*
 
 # Install JS bundler
-RUN npm install -g @vercel/ncc
+RUN npm install -g @vercel/ncc typescript
 
 WORKDIR /workspace
 
