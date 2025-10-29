@@ -91,22 +91,26 @@ echo "Entry point absolute path: $ENTRY_ABSOLUTE"
 
 # Copy boot script and replace placeholder with actual entry point
 echo "Preparing boot script..."
-mkdir -p /workspace/boot-temp
-cp -r /boot/* /workspace/boot-temp/
+mkdir -p /workspace/src/boot
+cp -r /boot/* /workspace/src/boot/
 
 # Replace the $ENTRY_POINT$ placeholder with the actual path
-sed -i 's|require('\''\$\$ENTRY_POINT\$\$'\'')|require('"'"$ENTRY_ABSOLUTE"'"')|g' /workspace/boot-temp/boot.ts
+sed -i 's|require('\''\$\$ENTRY_POINT\$\$'\'')|require('"'"$ENTRY_ABSOLUTE"'"')|g' /workspace/src/boot/boot.ts
 
 echo "Boot script prepared with entry point: $ENTRY_ABSOLUTE"
 
 echo "Copy tsconfig.json..."
-cp /tsconfig.json /workspace/boot-temp/tsconfig.json
+cp /tsconfig.json /workspace/src/boot/tsconfig.json
 cp /tsconfig.json /workspace/tsconfig.json
 
 # Build the boot script with ncc (this will bundle everything together)
 echo "Building Lambda with ncc..."
+cat > /workspace/src/__metorial_index.ts << 'EOF'
+import './boot/boot.ts';
+EOF
+
 mkdir -p /workspace/dist
-ncc build /workspace/boot-temp/boot.ts -o /workspace/dist -m
+ncc build /workspace/src/__metorial_index.ts -o /workspace/dist -m
 
 # Create package.json for Lambda runtime
 echo "Creating package.json..."
