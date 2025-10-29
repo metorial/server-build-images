@@ -95,7 +95,7 @@ mkdir -p /workspace/boot-temp
 cp  -r /boot /workspace/boot-temp
 
 # Replace the $ENTRY_POINT$ placeholder with the actual path
-sed -i "s|require('\\$\\$ENTRY_POINT\\$\\)|require('$ENTRY_ABSOLUTE')|g" /workspace/boot-temp/boot.ts
+sed -i 's|require('\''\$\$ENTRY_POINT\$\$'\'')|require('"'"$ENTRY_ABSOLUTE"'"')|g' /workspace/boot-temp/boot.ts
 
 echo "Boot script prepared with entry point: $ENTRY_ABSOLUTE"
 
