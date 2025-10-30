@@ -1,3 +1,5 @@
+import './config';
+
 import { McpError } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { callbacks } from './callbacks';
