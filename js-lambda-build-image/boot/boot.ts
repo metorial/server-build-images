@@ -12,11 +12,7 @@ import { getClient } from './server';
 interface LambdaEvent {
   action: 'discover' | 'mcp.request' | 'mcp.batch' | 'oauth' | 'callbacks';
 
-  messages?: Array<{
-    id?: string | number;
-    method: string;
-    params?: any;
-  }>;
+  messages?: string[];
 
   clientInfo?: {
     name: string;
@@ -165,7 +161,9 @@ let handleMcpRequests = async (
   });
 
   let responses = await Promise.all(
-    event.messages.map(async message => {
+    event.messages.map(async messageRaw => {
+      let message = JSON.parse(messageRaw);
+
       try {
         if ('id' in message) {
           let result = await client.request(message as any, z.any(), {
