@@ -4,6 +4,7 @@ FROM node:24-slim
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
   curl \
+  zip \
   unzip \
   file \
   awscli \
