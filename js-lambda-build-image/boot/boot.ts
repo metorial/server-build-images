@@ -13,15 +13,8 @@ interface LambdaEvent {
   action: 'discover' | 'mcp.request' | 'mcp.batch' | 'oauth' | 'callbacks';
 
   messages?: string[];
-
-  clientInfo?: {
-    name: string;
-    version: string;
-  };
-
-  args?: Record<string, any>;
-
-  token?: string;
+  participantJson?: string;
+  args?: string;
 
   oauthAction?: 'get' | 'authorization-url' | 'authorization-form' | 'refresh' | 'callback';
   oauthInput?: any;
@@ -62,11 +55,6 @@ interface LambdaResponse {
 }
 
 export let handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
-  let args = event.args || {};
-  if (typeof globalThis.__metorial_setArgs__ === 'function') {
-    globalThis.__metorial_setArgs__(args);
-  }
-
   let capturedLogs: Array<{ type: 'info' | 'error'; lines: string[] }> = [];
   let outputInstrumentation = new OutputInstrumentation(lines => {
     capturedLogs.push(...lines);
@@ -121,11 +109,16 @@ let handleDiscover = async (
   event: LambdaEvent,
   logs: Array<{ type: 'info' | 'error'; lines: string[] }>
 ): Promise<LambdaResponse> => {
-  let client = await getClient(event.args || {}, {
-    client: event.clientInfo || { name: 'Metorial Auto Discover', version: '0.1.0' },
-    capabilities: {},
-    notificationListener: async () => {}
-  });
+  globalThis.__metorial_setArgs__({});
+
+  let client = await getClient(
+    {},
+    {
+      client: { name: 'Metorial Auto Discover', version: '0.1.0' },
+      capabilities: {},
+      notificationListener: async () => {}
+    }
+  );
 
   let discovery = await discover(client);
 
@@ -151,10 +144,14 @@ let handleMcpRequests = async (
     };
   }
 
+  let participantJson = JSON.parse(event.participantJson!);
+  let args = JSON.parse(event.args!);
+  globalThis.__metorial_setArgs__(args);
+
   let notifications: any[] = [];
-  let client = await getClient(event.args || {}, {
-    client: event.clientInfo || { name: 'Unknown', version: '0.0.0' },
-    capabilities: {},
+  let client = await getClient(args, {
+    client: participantJson.clientInfo,
+    capabilities: participantJson.capabilities ?? {},
     notificationListener: async notification => {
       notifications.push(notification);
     }
