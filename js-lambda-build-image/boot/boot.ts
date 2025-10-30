@@ -105,6 +105,8 @@ export let handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
         };
     }
   } catch (error: any) {
+    console.error(error);
+
     return {
       success: false,
       logs: capturedLogs,
