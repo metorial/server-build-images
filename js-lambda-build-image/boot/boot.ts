@@ -462,3 +462,5 @@ let handleCallbacks = async (
       };
   }
 };
+
+module.exports = { handler };
