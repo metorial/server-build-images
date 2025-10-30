@@ -463,4 +463,4 @@ let handleCallbacks = async (
   }
 };
 
-module.exports = { handler };
+export default { handler };
