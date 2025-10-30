@@ -1,4 +1,4 @@
-import type { Client } from '@modelcontextprotocol/sdk/client';
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { Prompt, ResourceTemplate, Tool } from '@modelcontextprotocol/sdk/types.js';
 
 export let discover = async (client: Client) => {
