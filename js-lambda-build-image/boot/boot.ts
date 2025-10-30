@@ -43,7 +43,7 @@ interface LambdaResponse {
 
   callbacks?: any;
 
-  logs?: Array<{
+  logs: Array<{
     type: 'info' | 'error';
     lines: string[];
   }>;
