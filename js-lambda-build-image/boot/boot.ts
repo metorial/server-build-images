@@ -205,7 +205,9 @@ let handleMcpRequests = async (
 
   return {
     success: true,
-    responses: [...responses, ...notifications].filter(r => r !== null) as any,
+    responses: [...responses, ...notifications]
+      .filter(r => r !== null)
+      .map(r => JSON.stringify(r)) as any,
     logs
   };
 };
