@@ -266,6 +266,7 @@ let handleOAuth = async (
           error: { code: 'oauth_not_configured', message: 'OAuth form not available' }
         };
       }
+
       try {
         let authForm = await oauthResult.getAuthForm(event.oauthInput || {});
         return { success: true, oauth: { authForm }, logs };
@@ -289,8 +290,8 @@ let handleOAuth = async (
         };
       }
       try {
-        let refreshResult = await oauthResult.refreshAccessToken(event.oauthInput || {});
-        return { success: true, oauth: refreshResult, logs };
+        let authData = await oauthResult.refreshAccessToken(event.oauthInput || {});
+        return { success: true, oauth: { authData }, logs };
       } catch (error: any) {
         return {
           success: false,

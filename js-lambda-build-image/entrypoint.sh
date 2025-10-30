@@ -9,15 +9,12 @@ if [ -z "${ZIP_URL:-}" ] || [ -z "${S3_BUCKET:-}" ] || [ -z "${S3_KEY:-}" ]; the
   exit 1
 fi
 
-echo "Starting Metorial JS Lambda Build Process"
+echo "Starting Metorial Node Build Process"
 
-echo "Downloading source zip from ${ZIP_URL}"
+echo "Downloading source code..."
 
 # Download with error handling
 HTTP_CODE=$(curl -L "$ZIP_URL" -o /tmp/source.zip -w "%{http_code}" -s)
-
-echo "HTTP Status Code: $HTTP_CODE"
-echo "Downloaded file size: $(stat -c%s /tmp/source.zip 2>/dev/null || echo 'stat failed')"
 
 if [ "$HTTP_CODE" != "200" ]; then
   echo "Download failed with HTTP status: $HTTP_CODE"
@@ -35,7 +32,6 @@ if ! file /tmp/source.zip | grep -q "Zip archive"; then
   exit 1
 fi
 
-echo "Unpacking source code..."
 mkdir -p /workspace/src
 unzip -q /tmp/source.zip -d /workspace/src
 
@@ -81,8 +77,7 @@ else
   npm init -y
 fi
 
-echo "Installing TypeScript..."
-npm install typescript
+npm install typescript > /dev/null
 
 # Get absolute path to the entry point
 ENTRY_ABSOLUTE="/workspace/src/$ENTRY"
@@ -90,30 +85,25 @@ ENTRY_ABSOLUTE="/workspace/src/$ENTRY"
 echo "Entry point absolute path: $ENTRY_ABSOLUTE"
 
 # Copy boot script and replace placeholder with actual entry point
-echo "Preparing boot script..."
 mkdir -p /workspace/src/boot
 cp -r /boot/* /workspace/src/boot/
 
 # Replace the $ENTRY_POINT$ placeholder with the actual path
 sed -i 's|await import('\''\$\$ENTRY_POINT\$\$'\'')|await import('"'"$ENTRY_ABSOLUTE"'"')|g' /workspace/src/boot/boot.ts
 
-echo "Boot script prepared with entry point: $ENTRY_ABSOLUTE"
-
-echo "Copy tsconfig.json..."
 cp /tsconfig.json /workspace/src/boot/tsconfig.json
 cp /tsconfig.json /workspace/tsconfig.json
 
 # Build the boot script with ncc (this will bundle everything together)
-echo "Building Lambda with ncc..."
+echo "Building code for Metorial..."
 cat > /workspace/src/__metorial_index.ts << 'EOF'
 export * from './boot/boot';
 EOF
 
 mkdir -p /workspace/dist
-ncc build /workspace/src/__metorial_index.ts -o /workspace/dist -m
+ncc build /workspace/src/__metorial_index.ts -o /workspace/dist --minify --source-map > /dev/null
 
 # Create package.json for Lambda runtime
-echo "Creating package.json..."
 cat > /workspace/package.json << 'EOF'
 {
   "name": "lambda-function",
@@ -124,16 +114,12 @@ cat > /workspace/package.json << 'EOF'
 EOF
 
 # Zip the Lambda package
-echo "Creating Lambda deployment package..."
 cd /workspace
 zip -qr artifact.zip dist package.json
 
-echo "Package contents:"
 unzip -l artifact.zip
 
 # Upload to S3
-echo "Uploading artifact.zip to s3://${S3_BUCKET}/${S3_KEY}..."
 aws s3 cp artifact.zip "s3://${S3_BUCKET}/${S3_KEY}"
 
-echo "Build complete and uploaded successfully."
-echo "Lambda handler: dist/index.handler"
+echo "Build completed"
