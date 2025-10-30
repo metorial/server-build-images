@@ -74,7 +74,8 @@ export let handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
     capturedLogs.push(...lines);
   });
 
-  require('$$ENTRY_POINT$$');
+  // @ts-ignore
+  await import('$$ENTRY_POINT$$');
 
   try {
     switch (event.action) {
