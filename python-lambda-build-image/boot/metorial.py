@@ -1,126 +1,272 @@
 """Metorial MCP server SDK for Python Lambda."""
-from typing import Any, Callable, Dict, Optional, List
+from typing import Any, Callable, Dict, Optional
 from mcp.server import Server
 from . import config
 from . import oauth as oauth_module
 from . import callbacks as callbacks_module
 
-_global_server = None
-_global_handlers = {}
+_global_server_wrapper = None
 
 def get_args():
   """Get configuration arguments passed to the server."""
   return config.get_args()
 
-def set_oauth_handler(
-  get_authorization_url,
-  handle_callback,
-  get_auth_form=None,
-  refresh_access_token=None
-):
-  """Register an OAuth handler for the server."""
-  if get_authorization_url is None:
-    raise ValueError("get_authorization_url is required")
-  if handle_callback is None:
-    raise ValueError("handle_callback is required")
+class ServerWrapper:
+  """Wrapper around MCP Server with registration methods."""
   
-  handler = oauth_module.OAuthHandler(
-    get_authorization_url=get_authorization_url,
-    handle_callback=handle_callback,
-    get_auth_form=get_auth_form,
-    refresh_access_token=refresh_access_token
-  )
-  oauth_module.set_oauth(handler)
+  def __init__(self, mcp_server: Server):
+    self.mcp_server = mcp_server
+    self._tools = {}
+    self._resources = {}
+    self._prompts = {}
+    
+  def register_tool(
+    self, 
+    name: str, 
+    options: Dict[str, Any],
+    handler: Optional[Callable] = None
+  ):
+    """Register a tool with the server.
+    
+    Can be used as a decorator or called directly with a handler.
+    
+    Args:
+      name: Tool name
+      options: Dict with 'title', 'description', and 'inputSchema'
+      handler: Optional async function that takes tool arguments and returns result
+    
+    Returns:
+      If handler is None, returns a decorator. Otherwise returns the handler.
+    
+    Example as decorator:
+      @server.register_tool('add', {...})
+      async def add_handler(arguments):
+        return {...}
+    
+    Example with inline handler:
+      server.register_tool('add', {...}, lambda args: {...})
+    """
+    def decorator(func: Callable):
+      self._tools[name] = {
+        "options": options,
+        "handler": func
+      }
+      return func
+    
+    if handler is None:
+      return decorator
+    else:
+      return decorator(handler)
+  
+  def register_resource(
+    self,
+    name: str,
+    template: Any,
+    options: Dict[str, Any],
+    handler: Optional[Callable] = None
+  ):
+    """Register a resource with the server.
+    
+    Can be used as a decorator or called directly with a handler.
+    
+    Args:
+      name: Resource name
+      template: Resource URI template
+      options: Dict with 'title' and 'description'
+      handler: Optional async function that handles resource reads
+    
+    Returns:
+      If handler is None, returns a decorator. Otherwise returns the handler.
+    """
+    def decorator(func: Callable):
+      self._resources[name] = {
+        "template": template,
+        "options": options,
+        "handler": func
+      }
+      return func
+    
+    if handler is None:
+      return decorator
+    else:
+      return decorator(handler)
+  
+  def register_prompt(
+    self,
+    name: str,
+    options: Dict[str, Any],
+    handler: Optional[Callable] = None
+  ):
+    """Register a prompt with the server.
+    
+    Can be used as a decorator or called directly with a handler.
+    
+    Args:
+      name: Prompt name
+      options: Dict with 'title', 'description', and optional 'arguments'
+      handler: Optional async function that handles prompt generation
+    
+    Returns:
+      If handler is None, returns a decorator. Otherwise returns the handler.
+    """
+    def decorator(func: Callable):
+      self._prompts[name] = {
+        "options": options,
+        "handler": func
+      }
+      return func
+    
+    if handler is None:
+      return decorator
+    else:
+      return decorator(handler)
+  
+  def set_oauth_handler(
+    self,
+    get_authorization_url,
+    handle_callback,
+    get_auth_form=None,
+    refresh_access_token=None
+  ):
+    """Register an OAuth handler for the server."""
+    if get_authorization_url is None:
+      raise ValueError("get_authorization_url is required")
+    if handle_callback is None:
+      raise ValueError("handle_callback is required")
+    
+    handler = oauth_module.OAuthHandler(
+      get_authorization_url=get_authorization_url,
+      handle_callback=handle_callback,
+      get_auth_form=get_auth_form,
+      refresh_access_token=refresh_access_token
+    )
+    oauth_module.set_oauth(handler)
+  
+  def set_callback_handler(
+    self,
+    handle,
+    install=None,
+    poll=None
+  ):
+    """Register a callback handler for the server."""
+    if handle is None:
+      raise ValueError("handle is required")
+    
+    handler = callbacks_module.CallbackHandler(
+      handle_hook=handle,
+      install_hook=install,
+      poll_hook=poll
+    )
+    callbacks_module.set_callbacks(handler)
+  
+  async def _list_tools(self):
+    """Internal handler for listing tools."""
+    tools = []
+    for name, info in self._tools.items():
+      tool_def = {
+        "name": name,
+        "description": info["options"].get("description", ""),
+        "inputSchema": info["options"].get("inputSchema", {"type": "object", "properties": {}})
+      }
+      tools.append(tool_def)
+    return tools
+  
+  async def _call_tool(self, name: str, arguments: dict):
+    """Internal handler for calling tools."""
+    if name not in self._tools:
+      raise ValueError(f"Unknown tool: {name}")
+    
+    handler = self._tools[name]["handler"]
+    return await handler(arguments)
+  
+  async def _list_resources(self):
+    """Internal handler for listing resources."""
+    resources = []
+    for name, info in self._resources.items():
+      template = info["template"]
 
-def set_callback_handler(
-  handle,
-  install=None,
-  poll=None
-):
-  """Register a callback handler for the server."""
-  if handle is None:
-    raise ValueError("handle is required")
+      if isinstance(template, str):
+        uri_template = template
+      else:
+        uri_template = getattr(template, 'uriTemplate', str(template))
+      
+      resource_def = {
+        "uri": uri_template,
+        "name": info["options"].get("title", name),
+        "description": info["options"].get("description", ""),
+        "mimeType": info["options"].get("mimeType", "text/plain")
+      }
+      resources.append(resource_def)
+    return resources
   
-  handler = callbacks_module.CallbackHandler(
-    handle_hook=handle,
-    install_hook=install,
-    poll_hook=poll
-  )
-  callbacks_module.set_callbacks(handler)
+  async def _read_resource(self, uri: str):
+    """Internal handler for reading resources."""
+    for name, info in self._resources.items():
+      handler = info["handler"]
 
-def create_server(name, version="1.0.0"):
-  """Create a Metorial MCP server."""
-  global _global_server, _global_handlers
+      result = await handler(uri)
+      if result:
+        return result
+    
+    raise ValueError(f"Unknown resource: {uri}")
   
-  server = Server(name)
-  _global_server = server
+  async def _list_prompts(self):
+    """Internal handler for listing prompts."""
+    prompts = []
+    for name, info in self._prompts.items():
+      prompt_def = {
+        "name": name,
+        "description": info["options"].get("description", ""),
+      }
+      if "arguments" in info["options"]:
+        prompt_def["arguments"] = info["options"]["arguments"]
+      prompts.append(prompt_def)
+    return prompts
   
-  # Store server in global state for bootstrap to find
+  async def _get_prompt(self, name: str, arguments: dict):
+    """Internal handler for getting prompts."""
+    if name not in self._prompts:
+      raise ValueError(f"Unknown prompt: {name}")
+    
+    handler = self._prompts[name]["handler"]
+    return await handler(arguments)
+
+def create_server(info: Dict[str, str]):
+  """Create a Metorial MCP server.
+  
+  Args:
+    info: Dict with 'name' and 'version'
+  
+  Returns:
+    ServerWrapper instance to register tools, resources, and prompts
+  
+  Example:
+    server = metorial.create_server({'name': 'my-server', 'version': '1.0.0'})
+    
+    @server.register_tool('add', {...})
+    async def add_handler(arguments):
+      return {...}
+    
+    @server.register_resource('greeting', 'greeting://{name}', {...})
+    async def greeting_handler(uri):
+      return {...}
+  """
+  global _global_server_wrapper
+  
+  name = info.get("name", "mcp-server")
+  version = info.get("version", "1.0.0")
+  
+  mcp_server = Server(name)
+  server_wrapper = ServerWrapper(mcp_server)
+  _global_server_wrapper = server_wrapper
+  
   import builtins
-  builtins.__metorial_server__ = server
-  builtins.__metorial_handlers__ = _global_handlers
+  builtins.__metorial_server__ = mcp_server
+  builtins.__metorial_server_wrapper__ = server_wrapper
   
-  # Wrap decorators to capture handler functions
-  original_list_tools = server.list_tools
-  original_call_tool = server.call_tool
-  original_list_resources = server.list_resources
-  original_read_resource = server.read_resource
-  original_list_prompts = server.list_prompts
-  original_get_prompt = server.get_prompt
-  
-  def list_tools():
-    def decorator(func):
-      _global_handlers['list_tools'] = func
-      return original_list_tools()(func)
-    return decorator
-  
-  def call_tool():
-    def decorator(func):
-      _global_handlers['call_tool'] = func
-      return original_call_tool()(func)
-    return decorator
-  
-  def list_resources():
-    def decorator(func):
-      _global_handlers['list_resources'] = func
-      return original_list_resources()(func)
-    return decorator
-  
-  def read_resource():
-    def decorator(func):
-      _global_handlers['read_resource'] = func
-      return original_read_resource()(func)
-    return decorator
-  
-  def list_prompts():
-    def decorator(func):
-      _global_handlers['list_prompts'] = func
-      return original_list_prompts()(func)
-    return decorator
-  
-  def get_prompt():
-    def decorator(func):
-      _global_handlers['get_prompt'] = func
-      return original_get_prompt()(func)
-    return decorator
-  
-  server.list_tools = list_tools
-  server.call_tool = call_tool
-  server.list_resources = list_resources
-  server.read_resource = read_resource
-  server.list_prompts = list_prompts
-  server.get_prompt = get_prompt
-  
-  return server
-
-def start_server(server):
-  """Start the MCP server (no-op in Lambda, kept for API compatibility)."""
-  pass
+  return server_wrapper
 
 __all__ = [
   'create_server',
-  'start_server', 
-  'get_args',
-  'set_oauth_handler',
-  'set_callback_handler'
+  'get_args'
 ]

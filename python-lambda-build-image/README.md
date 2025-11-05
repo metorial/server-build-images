@@ -70,22 +70,63 @@ The build script searches for these files in order:
 
 User Python code should:
 1. Import `metorial` from the boot module
-2. Call `metorial.create_server(name)` to create a server
-3. Register handlers using decorators
+2. Create a server with `metorial.create_server()`
+3. Register tools, resources, and prompts using decorators
 4. Optionally configure OAuth and callbacks
 
 Example:
 ```python
 from boot import metorial
 
-server = metorial.create_server("My Server")
+# Create server
+server = metorial.create_server({
+    "name": "calculator-server",
+    "version": "1.0.0"
+})
 
-@server.list_tools()
-async def list_tools():
-  return [{"name": "example", "description": "Example tool"}]
+# Register a tool using decorator syntax
+@server.register_tool(
+    "add",
+    {
+        "title": "Addition Tool",
+        "description": "Add two numbers",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "a": {"type": "number", "description": "First number"},
+                "b": {"type": "number", "description": "Second number"}
+            },
+            "required": ["a", "b"]
+        }
+    }
+)
+async def add_handler(arguments):
+    result = arguments["a"] + arguments["b"]
+    return {
+        "content": [{
+            "type": "text",
+            "text": f"Result: {result}"
+        }]
+    }
 
-@server.call_tool()
-async def call_tool(name, arguments):
-  return {"result": "Success"}
+# Register a resource using decorator syntax
+@server.register_resource(
+    "greeting",
+    "greeting://{name}",
+    {
+        "title": "Greeting Resource",
+        "description": "Dynamic greeting generator"
+    }
+)
+async def greeting_handler(uri):
+    # Extract name from URI
+    name = uri.split("/")[-1]
+    return {
+        "contents": [{
+            "uri": uri,
+            "mimeType": "text/plain",
+            "text": f"Hello, {name}!"
+        }]
+    }
 ```
 

@@ -82,7 +82,18 @@ def load_user_server(args: Dict[str, Any]):
   if _server is None:
     raise RuntimeError("No MCP server found. Did you call metorial.create_server()?")
   
-  _handlers = getattr(builtins, '__metorial_handlers__', {})
+  server_wrapper = getattr(builtins, '__metorial_server_wrapper__', None)
+  if server_wrapper is None:
+    raise RuntimeError("No server wrapper found. Did you call metorial.create_server()?")
+  
+  _handlers = {
+    'list_tools': server_wrapper._list_tools,
+    'call_tool': server_wrapper._call_tool,
+    'list_resources': server_wrapper._list_resources,
+    'read_resource': server_wrapper._read_resource,
+    'list_prompts': server_wrapper._list_prompts,
+    'get_prompt': server_wrapper._get_prompt,
+  }
   
   return _server, _handlers
 
