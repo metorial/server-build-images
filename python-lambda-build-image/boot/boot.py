@@ -183,6 +183,20 @@ async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
           else:
             raise ValueError("get_prompt handler not registered")
         
+        elif method == 'initialize':
+          # Handle initialize request - return capabilities and server info
+          responses.append({
+            "jsonrpc": "2.0",
+            "id": message.get('id'),
+            "result": {
+              "capabilities": {},
+              "serverInfo": {
+                "name": server.name if hasattr(server, 'name') else "unknown",
+                "version": "1.0.0"
+              }
+            }
+          })
+        
         else:
           responses.append({
             "jsonrpc": "2.0",
