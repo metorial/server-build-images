@@ -2,7 +2,7 @@ import json
 import asyncio
 from typing import Any, Dict
 
-from __metorial__ import boot
+from boot import boot
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
   action = event.get('action')
