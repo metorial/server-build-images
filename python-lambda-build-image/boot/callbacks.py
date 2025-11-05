@@ -1,7 +1,18 @@
 """Callback handling for Metorial MCP servers."""
 from typing import Any, Dict, Optional, Callable
+import inspect
 
 _callback_handler = None
+
+async def _call_handler(handler: Callable, *args, **kwargs):
+  """Call handler supporting both sync and async functions."""
+  if inspect.iscoroutinefunction(handler):
+    return await handler(*args, **kwargs)
+  else:
+    result = handler(*args, **kwargs)
+    if inspect.iscoroutine(result):
+      return await result
+    return result
 
 class CallbackHandler:
   """Callback handler interface."""
@@ -48,7 +59,7 @@ async def handle_callbacks_handle(input_data: Dict[str, Any]) -> Dict[str, Any]:
   results = []
   for event in events:
     try:
-      result = await callbacks.handle_hook({
+      result = await _call_handler(callbacks.handle_hook, {
         "callbackId": callback_id,
         "eventId": event.get("eventId"),
         "payload": event.get("payload")
@@ -73,7 +84,7 @@ async def handle_callbacks_install(input_data: Dict[str, Any]) -> Dict[str, Any]
   if not callbacks or not callbacks.install_hook:
     raise ValueError("Callback installation not supported")
   
-  await callbacks.install_hook(input_data)
+  await _call_handler(callbacks.install_hook, input_data)
   return {"success": True}
 
 async def handle_callbacks_poll(input_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -90,7 +101,7 @@ async def handle_callbacks_poll(input_data: Dict[str, Any]) -> Dict[str, Any]:
   def set_state(new_state):
     state_ref["current"] = new_state
   
-  events = await callbacks.poll_hook({
+  events = await _call_handler(callbacks.poll_hook, {
     "callbackId": callback_id,
     "state": state,
     "setState": set_state

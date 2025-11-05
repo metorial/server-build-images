@@ -1,7 +1,19 @@
 """OAuth handling for Metorial MCP servers."""
 from typing import Any, Dict, Optional, Callable, List
+import inspect
 
 _oauth_handler = None
+
+async def _call_handler(handler: Callable, *args, **kwargs):
+  """Call handler supporting both sync and async functions."""
+  if inspect.iscoroutinefunction(handler):
+    return await handler(*args, **kwargs)
+  else:
+    result = handler(*args, **kwargs)
+    # If result is a coroutine, await it
+    if inspect.iscoroutine(result):
+      return await result
+    return result
 
 class OAuthHandler:
   """OAuth handler interface."""
@@ -38,7 +50,7 @@ async def handle_oauth_authorization_url(input_data: Dict[str, Any]) -> Dict[str
   if not oauth:
     raise ValueError("OAuth not configured")
   
-  result = await oauth.get_authorization_url(input_data)
+  result = await _call_handler(oauth.get_authorization_url, input_data)
   if isinstance(result, str):
     return {"authorizationUrl": result, "codeVerifier": ""}
   return result
@@ -49,7 +61,7 @@ async def handle_oauth_authorization_form(input_data: Dict[str, Any]) -> Dict[st
   if not oauth or not oauth.get_auth_form:
     raise ValueError("OAuth form not available")
   
-  form = await oauth.get_auth_form(input_data)
+  form = await _call_handler(oauth.get_auth_form, input_data)
   return {"authForm": form}
 
 async def handle_oauth_callback(input_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -58,7 +70,7 @@ async def handle_oauth_callback(input_data: Dict[str, Any]) -> Dict[str, Any]:
   if not oauth:
     raise ValueError("OAuth not configured")
   
-  auth_data = await oauth.handle_callback(input_data)
+  auth_data = await _call_handler(oauth.handle_callback, input_data)
   return {"authData": auth_data}
 
 async def handle_oauth_refresh(input_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -67,5 +79,5 @@ async def handle_oauth_refresh(input_data: Dict[str, Any]) -> Dict[str, Any]:
   if not oauth or not oauth.refresh_access_token:
     raise ValueError("OAuth refresh not supported")
   
-  auth_data = await oauth.refresh_access_token(input_data)
+  auth_data = await _call_handler(oauth.refresh_access_token, input_data)
   return {"authData": auth_data}
