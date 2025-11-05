@@ -1,5 +1,6 @@
 """Bootstrap module for Metorial Python Lambda handlers."""
 import asyncio
+import json
 import sys
 import os
 import importlib.util
@@ -135,17 +136,41 @@ async def handle_discover(event: Dict[str, Any]) -> Dict[str, Any]:
 
 async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
   try:
-    args = event.get('args', {})
+    args_raw = event.get('args', '{}')
+    args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
     server, handlers = load_user_server(args)
-    messages = event.get('messages', [])
+    messages_raw = event.get('messages', [])
     
     responses = []
-    for message in messages:
+    for message_raw in messages_raw:
+      message = json.loads(message_raw) if isinstance(message_raw, str) else message_raw
       try:
         method = message.get('method', '')
         params = message.get('params', {})
         
-        if method == 'tools/call':
+        if 'id' not in message:
+          continue
+        
+        if method == 'tools/list':
+          if 'list_tools' in handlers:
+            tools = await handlers['list_tools']()
+            responses.append({
+              "jsonrpc": "2.0",
+              "id": message.get('id'),
+              "result": {
+                "tools": tools if tools else []
+              }
+            })
+          else:
+            responses.append({
+              "jsonrpc": "2.0",
+              "id": message.get('id'),
+              "result": {
+                "tools": []
+              }
+            })
+        
+        elif method == 'tools/call':
           if 'call_tool' in handlers:
             name = params.get('name')
             arguments = params.get('arguments', {})
@@ -158,6 +183,25 @@ async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
           else:
             raise ValueError("call_tool handler not registered")
         
+        elif method == 'resources/list':
+          if 'list_resources' in handlers:
+            resources = await handlers['list_resources']()
+            responses.append({
+              "jsonrpc": "2.0",
+              "id": message.get('id'),
+              "result": {
+                "resources": resources if resources else []
+              }
+            })
+          else:
+            responses.append({
+              "jsonrpc": "2.0",
+              "id": message.get('id'),
+              "result": {
+                "resources": []
+              }
+            })
+        
         elif method == 'resources/read':
           if 'read_resource' in handlers:
             uri = params.get('uri')
@@ -169,6 +213,25 @@ async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
             })
           else:
             raise ValueError("read_resource handler not registered")
+        
+        elif method == 'prompts/list':
+          if 'list_prompts' in handlers:
+            prompts = await handlers['list_prompts']()
+            responses.append({
+              "jsonrpc": "2.0",
+              "id": message.get('id'),
+              "result": {
+                "prompts": prompts if prompts else []
+              }
+            })
+          else:
+            responses.append({
+              "jsonrpc": "2.0",
+              "id": message.get('id'),
+              "result": {
+                "prompts": []
+              }
+            })
         
         elif method == 'prompts/get':
           if 'get_prompt' in handlers:
@@ -184,17 +247,37 @@ async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
             raise ValueError("get_prompt handler not registered")
         
         elif method == 'initialize':
-          # Handle initialize request - return capabilities and server info
+          capabilities = {}
+          
+          if 'list_tools' in handlers or 'call_tool' in handlers:
+            capabilities['tools'] = {}
+          
+          if 'list_resources' in handlers or 'read_resource' in handlers:
+            capabilities['resources'] = {}
+          
+          if 'list_prompts' in handlers or 'get_prompt' in handlers:
+            capabilities['prompts'] = {}
+          
+          protocol_version = params.get('protocolVersion', '2024-11-05')
+          
           responses.append({
             "jsonrpc": "2.0",
             "id": message.get('id'),
             "result": {
-              "capabilities": {},
+              "protocolVersion": protocol_version,
+              "capabilities": capabilities,
               "serverInfo": {
                 "name": server.name if hasattr(server, 'name') else "unknown",
                 "version": "1.0.0"
               }
             }
+          })
+        
+        elif method == 'ping':
+          responses.append({
+            "jsonrpc": "2.0",
+            "id": message.get('id'),
+            "result": {}
           })
         
         else:
