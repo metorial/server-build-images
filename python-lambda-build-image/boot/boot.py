@@ -8,6 +8,8 @@ import builtins
 from typing import Any, Dict, Optional
 from io import StringIO
 
+from mcp.server.lowlevel.server import NotificationOptions
+
 from . import config
 from . import oauth
 from . import callbacks
@@ -109,7 +111,8 @@ async def handle_discover(event: Dict[str, Any]) -> Dict[str, Any]:
         prompts = prompts_result if isinstance(prompts_result, list) else []
     
     # Get server capabilities
-    server_capabilities = server.get_capabilities(server.notification_options, {})
+    notification_options = getattr(server, 'notification_options', NotificationOptions())
+    server_capabilities = server.get_capabilities(notification_options, {})
     
     return {
       "success": True,
@@ -158,7 +161,8 @@ async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
           continue
         
         if method == 'initialize':
-          server_capabilities = server.get_capabilities(server.notification_options, {})
+          notification_options = getattr(server, 'notification_options', NotificationOptions())
+          server_capabilities = server.get_capabilities(notification_options, {})
           
           responses.append({
             "jsonrpc": "2.0",
