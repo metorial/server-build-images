@@ -1,6 +1,6 @@
 """Metorial Python Lambda Boot Module Central exports."""
 
-from boot.metorial import (
+from .metorial import (
   create_server,
   start_server,
   get_args,
@@ -8,7 +8,7 @@ from boot.metorial import (
   set_callback_handler
 )
 
-from boot.bootstrap import (
+from .bootstrap import (
   handle_discover,
   handle_mcp_request,
   handle_oauth_action,
@@ -16,18 +16,18 @@ from boot.bootstrap import (
   load_user_server
 )
 
-from boot.config import (
+from .config import (
   set_args,
   get_args as get_config_args
 )
 
-from boot.oauth import (
+from .oauth import (
   OAuthHandler,
   set_oauth,
   get_oauth
 )
 
-from boot.callbacks import (
+from .callbacks import (
   CallbackHandler,
   set_callbacks,
   get_callbacks
