@@ -293,7 +293,45 @@ def create_server(info: Dict[str, str]):
   
   return server_wrapper
 
+def set_oauth_handler(
+  get_authorization_url,
+  handle_callback,
+  get_auth_form=None,
+  refresh_access_token=None
+):
+  """Register an OAuth handler at module level."""
+  if get_authorization_url is None:
+    raise ValueError("get_authorization_url is required")
+  if handle_callback is None:
+    raise ValueError("handle_callback is required")
+  
+  handler = oauth_module.OAuthHandler(
+    get_authorization_url=get_authorization_url,
+    handle_callback=handle_callback,
+    get_auth_form=get_auth_form,
+    refresh_access_token=refresh_access_token
+  )
+  oauth_module.set_oauth(handler)
+
+def set_callback_handler(
+  handle,
+  install=None,
+  poll=None
+):
+  """Register a callback handler at module level."""
+  if handle is None:
+    raise ValueError("handle is required")
+  
+  handler = callbacks_module.CallbackHandler(
+    handle_hook=handle,
+    install_hook=install,
+    poll_hook=poll
+  )
+  callbacks_module.set_callbacks(handler)
+
 __all__ = [
   'create_server',
-  'get_args'
+  'get_args',
+  'set_oauth_handler',
+  'set_callback_handler'
 ]
