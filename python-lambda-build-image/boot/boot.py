@@ -1,4 +1,4 @@
-"""Bootstrap module for Metorial Python Lambda handlers - REWRITTEN."""
+"""Bootstrap module for Metorial Python Lambda handlers."""
 import asyncio
 import json
 import sys
@@ -7,8 +7,6 @@ import importlib.util
 import builtins
 from typing import Any, Dict, Optional
 from io import StringIO
-
-from mcp import McpError
 
 from . import config
 from . import oauth
@@ -110,16 +108,19 @@ async def handle_discover(event: Dict[str, Any]) -> Dict[str, Any]:
       if prompts_result:
         prompts = prompts_result if isinstance(prompts_result, list) else []
     
+    # Get server capabilities
+    server_capabilities = server.get_capabilities(server.notification_options, {})
+    
     return {
       "success": True,
       "discovery": {
         "tools": tools,
         "resourceTemplates": resource_templates,
         "prompts": prompts,
-        "capabilities": {},
+        "capabilities": server_capabilities.model_dump(exclude_none=True),
         "implementation": {
           "name": server.name if hasattr(server, 'name') else "unknown",
-          "version": "1.0.0"
+          "version": server.version if hasattr(server, 'version') else "1.0.0"
         },
         "instructions": None
       }
@@ -135,89 +136,161 @@ async def handle_discover(event: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
-  """
-  Handle MCP requests by forwarding through a connected client session.
-  """
+  """Handle MCP requests by directly calling handlers."""
   try:
-    if not event.get('messages') or len(event.get('messages', [])) == 0:
-      return {
-        "success": False,
-        "error": {
-          "code": "invalid_request",
-          "message": "No messages provided"
-        }
-      }
-    
-    participant_raw = event.get('participantJson', '{}')
-    participant_json = json.loads(participant_raw) if isinstance(participant_raw, str) else participant_raw
-    
     args_raw = event.get('args', '{}')
     args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
     
-    config.set_args(args)
-    
-    load_user_server(args)
-    
-    from .client import get_client
-    notifications = []
-    client = await get_client(args, participant_json)
+    server, handlers = load_user_server(args)
     
     messages_raw = event.get('messages', [])
     
-    async def process_message(message_raw):
+    responses = []
+    
+    for message_raw in messages_raw:
       message = json.loads(message_raw) if isinstance(message_raw, str) else message_raw
       
       try:
-        if 'id' in message:
-          result = await client.send_request(
-            message.get('method'),
-            message.get('params', {})
-          )
+        method = message.get('method')
+        params = message.get('params', {})
+        
+        if 'id' not in message:
+          continue
+        
+        if method == 'initialize':
+          server_capabilities = server.get_capabilities(server.notification_options, {})
           
-          return {
+          responses.append({
             "jsonrpc": "2.0",
             "id": message['id'],
-            "result": result
-          }
-        else:
-          await client.send_notification(
-            message.get('method'),
-            message.get('params', {})
-          )
-          return None
-      
-      except Exception as error:
-        if isinstance(error, McpError):
-          return {
-            "jsonrpc": "2.0",
-            "id": message.get('id'),
-            "error": {
-              "code": error.code,
-              "message": error.message,
-              "data": getattr(error, 'data', None)
+            "result": {
+              "protocolVersion": params.get('protocolVersion', '2024-11-05'),
+              "capabilities": server_capabilities.model_dump(exclude_none=True),
+              "serverInfo": {
+                "name": server.name if hasattr(server, 'name') else "unknown",
+                "version": server.version if hasattr(server, 'version') else "1.0.0"
+              }
             }
-          }
+          })
         
-        return {
+        elif method == 'tools/list':
+          if 'list_tools' in handlers:
+            tools = await handlers['list_tools']()
+            responses.append({
+              "jsonrpc": "2.0",
+              "id": message['id'],
+              "result": {"tools": tools if tools else []}
+            })
+          else:
+            responses.append({
+              "jsonrpc": "2.0",
+              "id": message['id'],
+              "result": {"tools": []}
+            })
+        
+        elif method == 'tools/call':
+          if 'call_tool' in handlers:
+            name = params.get('name')
+            arguments = params.get('arguments', {})
+            result = await handlers['call_tool'](name, arguments)
+            responses.append({
+              "jsonrpc": "2.0",
+              "id": message['id'],
+              "result": result
+            })
+          else:
+            raise ValueError("call_tool handler not registered")
+        
+        elif method == 'resources/list':
+          if 'list_resources' in handlers:
+            resources = await handlers['list_resources']()
+            responses.append({
+              "jsonrpc": "2.0",
+              "id": message['id'],
+              "result": {"resources": resources if resources else []}
+            })
+          else:
+            responses.append({
+              "jsonrpc": "2.0",
+              "id": message['id'],
+              "result": {"resources": []}
+            })
+        
+        elif method == 'resources/read':
+          if 'read_resource' in handlers:
+            uri = params.get('uri')
+            result = await handlers['read_resource'](uri)
+            responses.append({
+              "jsonrpc": "2.0",
+              "id": message['id'],
+              "result": result
+            })
+          else:
+            raise ValueError("read_resource handler not registered")
+        
+        elif method == 'prompts/list':
+          if 'list_prompts' in handlers:
+            prompts = await handlers['list_prompts']()
+            responses.append({
+              "jsonrpc": "2.0",
+              "id": message['id'],
+              "result": {"prompts": prompts if prompts else []}
+            })
+          else:
+            responses.append({
+              "jsonrpc": "2.0",
+              "id": message['id'],
+              "result": {"prompts": []}
+            })
+        
+        elif method == 'prompts/get':
+          if 'get_prompt' in handlers:
+            name = params.get('name')
+            arguments = params.get('arguments', {})
+            result = await handlers['get_prompt'](name, arguments)
+            responses.append({
+              "jsonrpc": "2.0",
+              "id": message['id'],
+              "result": result
+            })
+          else:
+            raise ValueError("get_prompt handler not registered")
+        
+        elif method == 'ping':
+          responses.append({
+            "jsonrpc": "2.0",
+            "id": message['id'],
+            "result": {}
+          })
+        
+        else:
+          responses.append({
+            "jsonrpc": "2.0",
+            "id": message['id'],
+            "error": {
+              "code": -32601,
+              "message": f"Method not found: {method}"
+            }
+          })
+      
+      except Exception as e:
+        import traceback
+        responses.append({
           "jsonrpc": "2.0",
           "id": message.get('id'),
           "error": {
             "code": -32603,
-            "message": str(error)
+            "message": str(e),
+            "data": traceback.format_exc()
           }
-        }
-    
-    responses = await asyncio.gather(*[process_message(msg) for msg in messages_raw])
+        })
     
     await asyncio.sleep(0.1)
     
-    all_responses = [r for r in list(responses) + notifications if r is not None]
-    
     return {
       "success": True,
-      "responses": all_responses
+      "responses": responses
     }
-  
   except Exception as e:
     import traceback
     return {
