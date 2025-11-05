@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 from __metorial__ import boot
 
-def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
   action = event.get('action')
   
   try:
@@ -46,5 +46,5 @@ if __name__ == "__main__":
     "action": "discover",
     "args": {}
   }
-  result = lambda_handler(test_event, None)
+  result = handler(test_event, None)
   print(json.dumps(result, indent=2))
