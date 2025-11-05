@@ -1,0 +1,86 @@
+name: 'Build and Push Python Lambda Image'
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    name: 'Build and Push'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
+    env:
+      SERVICE_NAME: python-lambda-build-image-v1
+      IMAGE_NAME: metorial/python-lambda-build-image-v1
+      BUILD_DIR: ./python-lambda-build-image
+      GHCR_REGISTRY: ghcr.io
+      ECR_REGISTRY: public.ecr.aws/z8i8n6f7
+      CONTAINER_TAG: mtbld-${{ github.ref_name }}-${{ github.sha }}
+      AWS_REGION: us-east-1
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to AWS Public ECR
+        run: |
+          aws ecr-public get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.GHCR_REGISTRY }}/${{ env.IMAGE_NAME }}
+            ${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}
+          labels: |
+            org.opencontainers.image.title=${{ env.SERVICE_NAME }}
+            org.opencontainers.image.vendor=Metorial
+          tags: |
+            type=sha
+            type=sha,format=long
+            type=ref,event=branch
+            type=ref,event=tag,prefix=tag-
+            type=ref,event=pr,prefix=pr-
+            type=raw,value=${{ env.CONTAINER_TAG }}
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+
+      - name: Build and push Docker image to GHCR + AWS Public ECR
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.BUILD_DIR }}
+          push: true
+          file: ${{ env.BUILD_DIR }}/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
