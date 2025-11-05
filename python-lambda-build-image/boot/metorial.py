@@ -1,9 +1,9 @@
 """Metorial MCP server SDK for Python Lambda."""
 from typing import Any, Callable, Dict, Optional, List
 from mcp.server import Server
-from boot import config
-from boot import oauth as oauth_module
-from boot import callbacks as callbacks_module
+from . import config
+from . import oauth as oauth_module
+from . import callbacks as callbacks_module
 
 _global_server = None
 _global_handlers = {}

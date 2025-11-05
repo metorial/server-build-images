@@ -5,14 +5,61 @@ import os
 import importlib.util
 import builtins
 from typing import Any, Dict
+from io import StringIO
 
-from boot import config
-from boot import oauth
-from boot import callbacks
+from . import config
+from . import oauth
+from . import callbacks
 
 _user_module_loaded = False
 _server = None
 _handlers = {}
+
+class LogCapture:
+  """Captures stdout/stderr for log instrumentation."""
+  
+  def __init__(self):
+    self.logs = []
+    self.original_stdout = None
+    self.original_stderr = None
+    self.stdout_capture = None
+    self.stderr_capture = None
+  
+  def start(self):
+    """Start capturing output."""
+    self.original_stdout = sys.stdout
+    self.original_stderr = sys.stderr
+    self.stdout_capture = StringIO()
+    self.stderr_capture = StringIO()
+    sys.stdout = self.stdout_capture
+    sys.stderr = self.stderr_capture
+  
+  def stop(self):
+    """Stop capturing and collect logs."""
+    if self.original_stdout:
+      sys.stdout = self.original_stdout
+    if self.original_stderr:
+      sys.stderr = self.original_stderr
+    
+    # Collect stdout
+    if self.stdout_capture:
+      stdout_text = self.stdout_capture.getvalue()
+      if stdout_text.strip():
+        self.logs.append({
+          "type": "info",
+          "lines": stdout_text.strip().split('\n')
+        })
+    
+    # Collect stderr
+    if self.stderr_capture:
+      stderr_text = self.stderr_capture.getvalue()
+      if stderr_text.strip():
+        self.logs.append({
+          "type": "error",
+          "lines": stderr_text.strip().split('\n')
+        })
+    
+    return self.logs
 
 def load_user_server(args: Dict[str, Any]):
   global _user_module_loaded, _server, _handlers
@@ -155,6 +202,8 @@ async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
             "message": str(e)
           }
         })
+    
+    await asyncio.sleep(0.1)
     
     return {
       "success": True,

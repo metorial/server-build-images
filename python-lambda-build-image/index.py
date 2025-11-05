@@ -1,12 +1,10 @@
-"""Lambda handler entry point for Metorial Python MCP servers."""
 import json
 import asyncio
 from typing import Any, Dict
 
-from boot import bootstrap
+from __metorial__ import boot
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-  """AWS Lambda handler function."""
   action = event.get('action')
   
   try:
@@ -16,13 +14,13 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
       asyncio.set_event_loop(loop)
     
     if action == 'discover':
-      result = loop.run_until_complete(bootstrap.handle_discover(event))
+      result = loop.run_until_complete(boot.handle_discover(event))
     elif action == 'mcp.request' or action == 'mcp.batch':
-      result = loop.run_until_complete(bootstrap.handle_mcp_request(event))
+      result = loop.run_until_complete(boot.handle_mcp_request(event))
     elif action == 'oauth':
-      result = loop.run_until_complete(bootstrap.handle_oauth_action(event))
+      result = loop.run_until_complete(boot.handle_oauth_action(event))
     elif action == 'callbacks':
-      result = loop.run_until_complete(bootstrap.handle_callbacks_action(event))
+      result = loop.run_until_complete(boot.handle_callbacks_action(event))
     else:
       result = {
         "success": False,

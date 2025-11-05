@@ -8,7 +8,7 @@ from .metorial import (
   set_callback_handler
 )
 
-from .bootstrap import (
+from .boot import (
   handle_discover,
   handle_mcp_request,
   handle_oauth_action,
