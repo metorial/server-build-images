@@ -94,7 +94,7 @@ cd /workspace/src
 zip -qr /workspace/artifact.zip .
 
 echo "Deployment package contents:"
-unzip -l /workspace/artifact.zip | head -30
+unzip -l /workspace/artifact.zip
 
 # Upload to S3
 echo "Uploading to S3..."
