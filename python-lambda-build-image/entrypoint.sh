@@ -73,8 +73,11 @@ fi
 echo "Installing MCP SDK..."
 pip install --no-cache-dir "mcp>=1.0.0" -t .
 
-# Copy boot scripts to __metorial__ directory
+# Copy boot scripts to root level for user imports
 echo "Copying Metorial boot scripts..."
+cp -r /boot /workspace/src/boot
+
+# Also copy to __metorial__ directory for internal use
 mkdir -p /workspace/src/__metorial__
 cp -r /boot/* /workspace/src/__metorial__/
 
