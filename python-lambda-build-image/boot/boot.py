@@ -9,9 +9,10 @@ from typing import Any, Dict, Optional
 from io import StringIO
 
 import anyio
+from mcp import McpError
 from mcp.client.session import ClientSession
 from mcp.server.session import ServerSession
-from mcp.types import Implementation, McpError
+from mcp.types import Implementation
 
 from . import config
 from . import oauth
