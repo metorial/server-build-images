@@ -110,7 +110,6 @@ async def handle_discover(event: Dict[str, Any]) -> Dict[str, Any]:
       if prompts_result:
         prompts = prompts_result if isinstance(prompts_result, list) else []
     
-    # Get server capabilities
     notification_options = getattr(server, 'notification_options', NotificationOptions())
     server_capabilities = server.get_capabilities(notification_options, {})
     
@@ -291,9 +290,11 @@ async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
     
     await asyncio.sleep(0.1)
     
+    stringified_responses = [json.dumps(r) for r in responses if r is not None]
+    
     return {
       "success": True,
-      "responses": responses
+      "responses": stringified_responses
     }
   except Exception as e:
     import traceback
