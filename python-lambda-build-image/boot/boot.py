@@ -1,20 +1,27 @@
-"""Bootstrap module for Metorial Python Lambda handlers."""
+"""Bootstrap module for Metorial Python Lambda handlers - REWRITTEN."""
 import asyncio
 import json
 import sys
 import os
 import importlib.util
 import builtins
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from io import StringIO
+
+import anyio
+from mcp.client.session import ClientSession
+from mcp.server.session import ServerSession
+from mcp.types import Implementation, McpError
 
 from . import config
 from . import oauth
 from . import callbacks
+from .transport import create_in_process_transport
 
 _user_module_loaded = False
 _server = None
 _handlers = {}
+_clients = {}
 
 class LogCapture:
   """Captures stdout/stderr for log instrumentation."""
@@ -86,6 +93,52 @@ def load_user_server(args: Dict[str, Any]):
   
   return _server, _handlers
 
+async def get_client(args: Dict[str, Any], participant_json: Dict[str, Any]) -> ClientSession:
+  """Get or create an MCP client connected to the user's server."""
+  client_name = participant_json.get('clientInfo', {}).get('name', 'default')
+  
+  if client_name in _clients:
+    return _clients[client_name]
+  
+  # Load the user's server
+  server, _ = load_user_server(args)
+  
+  # Create in-process transport
+  server_streams, client_streams = create_in_process_transport()
+  
+  # Create server session
+  server_session = ServerSession(
+    server_streams[1],  # read from client
+    server_streams[0]   # write to client
+  )
+  
+  # Create client session
+  client_session = ClientSession(
+    client_streams[1],  # read from server
+    client_streams[0],  # write to server
+    client_info=Implementation(
+      name=participant_json.get('clientInfo', {}).get('name', 'Metorial'),
+      version=participant_json.get('clientInfo', {}).get('version', '1.0.0')
+    )
+  )
+  
+  # Start both sessions in background task group
+  async def run_sessions():
+    async with anyio.create_task_group() as tg:
+      # Run server session
+      tg.start_soon(server._handle_session, server_session)
+      # Keep running
+      await anyio.sleep_forever()
+  
+  # Start background task
+  asyncio.create_task(run_sessions())
+  
+  # Initialize client (does the handshake including initialize)
+  await client_session.initialize()
+  
+  _clients[client_name] = client_session
+  return client_session
+
 async def handle_discover(event: Dict[str, Any]) -> Dict[str, Any]:
   try:
     args = event.get('args', {})
@@ -135,159 +188,63 @@ async def handle_discover(event: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
+  """
+  Handle MCP requests by forwarding them through a client session.
+  This matches the JavaScript implementation which uses the MCP SDK Client.
+  """
   try:
+    # Parse args and participant info
     args_raw = event.get('args', '{}')
     args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
-    server, handlers = load_user_server(args)
+    
+    participant_raw = event.get('participantJson', '{}')
+    participant_json = json.loads(participant_raw) if isinstance(participant_raw, str) else participant_raw
+    
+    # Get connected client (this handles initialize automatically)
+    client = await get_client(args, participant_json)
+    
     messages_raw = event.get('messages', [])
     
     responses = []
+    notifications = []
+    
+    # Process each message
     for message_raw in messages_raw:
       message = json.loads(message_raw) if isinstance(message_raw, str) else message_raw
+      
       try:
-        method = message.get('method', '')
-        params = message.get('params', {})
-        
-        if 'id' not in message:
-          continue
-        
-        if method == 'tools/list':
-          if 'list_tools' in handlers:
-            tools = await handlers['list_tools']()
-            responses.append({
-              "jsonrpc": "2.0",
-              "id": message.get('id'),
-              "result": {
-                "tools": tools if tools else []
-              }
-            })
-          else:
-            responses.append({
-              "jsonrpc": "2.0",
-              "id": message.get('id'),
-              "result": {
-                "tools": []
-              }
-            })
-        
-        elif method == 'tools/call':
-          if 'call_tool' in handlers:
-            name = params.get('name')
-            arguments = params.get('arguments', {})
-            result = await handlers['call_tool'](name, arguments)
-            responses.append({
-              "jsonrpc": "2.0",
-              "id": message.get('id'),
-              "result": result
-            })
-          else:
-            raise ValueError("call_tool handler not registered")
-        
-        elif method == 'resources/list':
-          if 'list_resources' in handlers:
-            resources = await handlers['list_resources']()
-            responses.append({
-              "jsonrpc": "2.0",
-              "id": message.get('id'),
-              "result": {
-                "resources": resources if resources else []
-              }
-            })
-          else:
-            responses.append({
-              "jsonrpc": "2.0",
-              "id": message.get('id'),
-              "result": {
-                "resources": []
-              }
-            })
-        
-        elif method == 'resources/read':
-          if 'read_resource' in handlers:
-            uri = params.get('uri')
-            result = await handlers['read_resource'](uri)
-            responses.append({
-              "jsonrpc": "2.0",
-              "id": message.get('id'),
-              "result": result
-            })
-          else:
-            raise ValueError("read_resource handler not registered")
-        
-        elif method == 'prompts/list':
-          if 'list_prompts' in handlers:
-            prompts = await handlers['list_prompts']()
-            responses.append({
-              "jsonrpc": "2.0",
-              "id": message.get('id'),
-              "result": {
-                "prompts": prompts if prompts else []
-              }
-            })
-          else:
-            responses.append({
-              "jsonrpc": "2.0",
-              "id": message.get('id'),
-              "result": {
-                "prompts": []
-              }
-            })
-        
-        elif method == 'prompts/get':
-          if 'get_prompt' in handlers:
-            name = params.get('name')
-            arguments = params.get('arguments', {})
-            result = await handlers['get_prompt'](name, arguments)
-            responses.append({
-              "jsonrpc": "2.0",
-              "id": message.get('id'),
-              "result": result
-            })
-          else:
-            raise ValueError("get_prompt handler not registered")
-        
-        elif method == 'initialize':
-          server_capabilities = server.get_capabilities(
-            server.notification_options,
-            {} 
+        # If message has 'id', it's a request; otherwise it's a notification
+        if 'id' in message:
+          # Forward request to client - SDK handles all protocol methods automatically
+          result = await client.send_request(
+            message.get('method'),
+            message.get('params', {})
           )
           
-          capabilities = server_capabilities.model_dump(exclude_none=True)
-          
-          protocol_version = params.get('protocolVersion', '2024-11-05')
-          
-          server_info = {
-            "name": server.name if hasattr(server, 'name') else "unknown",
-            "version": server.version if hasattr(server, 'version') else "1.0.0"
-          }
-          
           responses.append({
             "jsonrpc": "2.0",
-            "id": message.get('id'),
-            "result": {
-              "protocolVersion": protocol_version,
-              "capabilities": capabilities,
-              "serverInfo": server_info
-            }
+            "id": message['id'],
+            "result": result
           })
-        
-        elif method == 'ping':
-          responses.append({
-            "jsonrpc": "2.0",
-            "id": message.get('id'),
-            "result": {}
-          })
-        
         else:
-          responses.append({
-            "jsonrpc": "2.0",
-            "id": message.get('id'),
-            "error": {
-              "code": -32601,
-              "message": f"Method not found: {method}"
-            }
-          })
+          # It's a notification (no response needed)
+          await client.send_notification(
+            message.get('method'),
+            message.get('params', {})
+          )
+          # Notifications might generate server notifications
+          notifications.append(message)
       
+      except McpError as e:
+        responses.append({
+          "jsonrpc": "2.0",
+          "id": message.get('id'),
+          "error": {
+            "code": e.code,
+            "message": e.message,
+            "data": e.data if hasattr(e, 'data') else None
+          }
+        })
       except Exception as e:
         responses.append({
           "jsonrpc": "2.0",
@@ -378,3 +335,4 @@ async def handle_callbacks_action(event: Dict[str, Any]) -> Dict[str, Any]:
         "message": str(e) + "\n" + traceback.format_exc()
       }
     }
+
