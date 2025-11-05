@@ -109,8 +109,6 @@ let handleDiscover = async (
   event: LambdaEvent,
   logs: Array<{ type: 'info' | 'error'; lines: string[] }>
 ): Promise<LambdaResponse> => {
-  globalThis.__metorial_setArgs__({});
-
   let client = await getClient(
     {},
     {
@@ -146,7 +144,6 @@ let handleMcpRequests = async (
 
   let participantJson = JSON.parse(event.participantJson!);
   let args = JSON.parse(event.args!);
-  globalThis.__metorial_setArgs__(args);
 
   let notifications: any[] = [];
   let client = await getClient(args, {
