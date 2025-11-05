@@ -121,6 +121,10 @@ async def handle_discover(event: Dict[str, Any]) -> Dict[str, Any]:
     
     capabilities = server_wrapper.get_capabilities()
     
+    oauth_config = await oauth.handle_oauth_get()
+    
+    callbacks_config = await callbacks.handle_callbacks_get()
+    
     return {
       "success": True,
       "discovery": {
@@ -132,7 +136,9 @@ async def handle_discover(event: Dict[str, Any]) -> Dict[str, Any]:
           "name": server_wrapper.name,
           "version": server_wrapper.version
         },
-        "instructions": None
+        "instructions": None,
+        "oauth": oauth_config,
+        "callbacks": callbacks_config
       }
     }
   except Exception as e:
