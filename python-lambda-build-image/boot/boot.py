@@ -8,8 +8,6 @@ import builtins
 from typing import Any, Dict, Optional
 from io import StringIO
 
-from mcp.server.lowlevel.server import NotificationOptions
-
 from . import config
 from . import oauth
 from . import callbacks
@@ -95,12 +93,12 @@ def load_user_server(args: Dict[str, Any]):
     'get_prompt': server_wrapper._get_prompt,
   }
   
-  return _server, _handlers
+  return _server, _handlers, server_wrapper
 
 async def handle_discover(event: Dict[str, Any]) -> Dict[str, Any]:
   try:
     args = event.get('args', {})
-    server, handlers = load_user_server(args)
+    server, handlers, server_wrapper = load_user_server(args)
     
     tools = []
     resource_templates = []
@@ -121,8 +119,7 @@ async def handle_discover(event: Dict[str, Any]) -> Dict[str, Any]:
       if prompts_result:
         prompts = prompts_result if isinstance(prompts_result, list) else []
     
-    notification_options = getattr(server, 'notification_options', NotificationOptions())
-    server_capabilities = server.get_capabilities(notification_options, {})
+    capabilities = server_wrapper.get_capabilities()
     
     return {
       "success": True,
@@ -130,10 +127,10 @@ async def handle_discover(event: Dict[str, Any]) -> Dict[str, Any]:
         "tools": tools,
         "resourceTemplates": resource_templates,
         "prompts": prompts,
-        "capabilities": server_capabilities.model_dump(exclude_none=True),
+        "capabilities": capabilities,
         "implementation": {
-          "name": server.name if hasattr(server, 'name') else "unknown",
-          "version": server.version if hasattr(server, 'version') else "1.0.0"
+          "name": server_wrapper.name,
+          "version": server_wrapper.version
         },
         "instructions": None
       }
@@ -154,7 +151,7 @@ async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
     args_raw = event.get('args', '{}')
     args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
     
-    server, handlers = load_user_server(args)
+    server, handlers, server_wrapper = load_user_server(args)
     
     messages_raw = event.get('messages', [])
     
@@ -171,18 +168,17 @@ async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
           continue
         
         if method == 'initialize':
-          notification_options = getattr(server, 'notification_options', NotificationOptions())
-          server_capabilities = server.get_capabilities(notification_options, {})
+          capabilities = server_wrapper.get_capabilities()
           
           responses.append({
             "jsonrpc": "2.0",
             "id": message['id'],
             "result": {
               "protocolVersion": params.get('protocolVersion', '2024-11-05'),
-              "capabilities": server_capabilities.model_dump(exclude_none=True),
+              "capabilities": capabilities,
               "serverInfo": {
-                "name": server.name if hasattr(server, 'name') else "unknown",
-                "version": server.version if hasattr(server, 'version') else "1.0.0"
+                "name": server_wrapper.name,
+                "version": server_wrapper.version
               }
             }
           })
@@ -319,7 +315,7 @@ async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
 
 async def handle_oauth_action(event: Dict[str, Any]) -> Dict[str, Any]:
   try:
-    load_user_server({})
+    _, _, _ = load_user_server({})
     
     oauth_action = event.get('oauthAction')
     oauth_input = event.get('oauthInput', {})
@@ -353,7 +349,7 @@ async def handle_oauth_action(event: Dict[str, Any]) -> Dict[str, Any]:
 
 async def handle_callbacks_action(event: Dict[str, Any]) -> Dict[str, Any]:
   try:
-    load_user_server({})
+    _, _, _ = load_user_server({})
     
     callback_action = event.get('callbackAction')
     callback_input = event.get('callbackInput', {})

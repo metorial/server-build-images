@@ -14,8 +14,10 @@ def get_args():
 class ServerWrapper:
   """Wrapper around MCP Server with registration methods."""
   
-  def __init__(self, mcp_server: Server):
+  def __init__(self, mcp_server: Server, name: str, version: str):
     self.mcp_server = mcp_server
+    self.name = name
+    self.version = version
     self._tools = {}
     self._resources = {}
     self._prompts = {}
@@ -230,6 +232,30 @@ class ServerWrapper:
     
     handler = self._prompts[name]["handler"]
     return await handler(arguments)
+  
+  def get_capabilities(self):
+    """Get server capabilities based on registered tools/resources/prompts."""
+    capabilities = {
+      "experimental": {}
+    }
+    
+    if self._tools:
+      capabilities["tools"] = {
+        "listChanged": False
+      }
+    
+    if self._resources:
+      capabilities["resources"] = {
+        "listChanged": False,
+        "subscribe": False
+      }
+    
+    if self._prompts:
+      capabilities["prompts"] = {
+        "listChanged": False
+      }
+    
+    return capabilities
 
 def create_server(info: Dict[str, str]):
   """Create a Metorial MCP server.
@@ -257,7 +283,8 @@ def create_server(info: Dict[str, str]):
   version = info.get("version", "1.0.0")
   
   mcp_server = Server(name)
-  server_wrapper = ServerWrapper(mcp_server)
+  mcp_server.version = version
+  server_wrapper = ServerWrapper(mcp_server, name, version)
   _global_server_wrapper = server_wrapper
   
   import builtins
