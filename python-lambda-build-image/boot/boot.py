@@ -247,18 +247,19 @@ async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
             raise ValueError("get_prompt handler not registered")
         
         elif method == 'initialize':
-          capabilities = {}
+          server_capabilities = server.get_capabilities(
+            server.notification_options,
+            {} 
+          )
           
-          if 'list_tools' in handlers or 'call_tool' in handlers:
-            capabilities['tools'] = {}
-          
-          if 'list_resources' in handlers or 'read_resource' in handlers:
-            capabilities['resources'] = {}
-          
-          if 'list_prompts' in handlers or 'get_prompt' in handlers:
-            capabilities['prompts'] = {}
+          capabilities = server_capabilities.model_dump(exclude_none=True)
           
           protocol_version = params.get('protocolVersion', '2024-11-05')
+          
+          server_info = {
+            "name": server.name if hasattr(server, 'name') else "unknown",
+            "version": server.version if hasattr(server, 'version') else "1.0.0"
+          }
           
           responses.append({
             "jsonrpc": "2.0",
@@ -266,10 +267,7 @@ async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
             "result": {
               "protocolVersion": protocol_version,
               "capabilities": capabilities,
-              "serverInfo": {
-                "name": server.name if hasattr(server, 'name') else "unknown",
-                "version": "1.0.0"
-              }
+              "serverInfo": server_info
             }
           })
         
