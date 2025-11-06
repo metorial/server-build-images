@@ -85,7 +85,7 @@ async def handle_callbacks_install(input_data: Dict[str, Any]) -> Dict[str, Any]
     raise ValueError("Callback installation not supported")
   
   await _call_handler(callbacks.install_hook, input_data)
-  return {"success": True}
+  return {}
 
 async def handle_callbacks_poll(input_data: Dict[str, Any]) -> Dict[str, Any]:
   """Handle callbacks poll request."""
