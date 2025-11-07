@@ -1,7 +1,6 @@
 """Callback handling for Metorial MCP servers."""
 from typing import Any, Dict, Optional, Callable
 import inspect
-import asyncio
 
 from . import config
 
@@ -29,18 +28,13 @@ def set_callbacks(handler: CallbackHandler):
     """Register the callback handler."""
     config.set_callback_handler(handler)
 
-async def get_callbacks() -> Optional[CallbackHandler]:
-    """Get the registered callback handler with timeout."""
-    try:
-        callback_promise = config.get_callback_handler()
-        result = await asyncio.wait_for(callback_promise, timeout=0.5)
-        return result
-    except asyncio.TimeoutError:
-        return None
+def get_callbacks() -> Optional[CallbackHandler]:
+    """Get the registered callback handler."""
+    return config.get_callback_handler()
 
 async def handle_callbacks_get() -> Dict[str, Any]:
     """Handle callbacks get request."""
-    callbacks = await get_callbacks()
+    callbacks = get_callbacks()
     if not callbacks:
         return {"enabled": False}
     
@@ -54,7 +48,7 @@ async def handle_callbacks_get() -> Dict[str, Any]:
 
 async def handle_callbacks_handle(input_data: Dict[str, Any]) -> Dict[str, Any]:
     """Handle callbacks handle request."""
-    callbacks = await get_callbacks()
+    callbacks = get_callbacks()
     if not callbacks:
         raise ValueError("Callbacks not configured")
     
@@ -85,7 +79,7 @@ async def handle_callbacks_handle(input_data: Dict[str, Any]) -> Dict[str, Any]:
 
 async def handle_callbacks_install(input_data: Dict[str, Any]) -> Dict[str, Any]:
     """Handle callbacks install request."""
-    callbacks = await get_callbacks()
+    callbacks = get_callbacks()
     if not callbacks or not callbacks.install_hook:
         raise ValueError("Callback installation not supported")
     
@@ -94,7 +88,7 @@ async def handle_callbacks_install(input_data: Dict[str, Any]) -> Dict[str, Any]
 
 async def handle_callbacks_poll(input_data: Dict[str, Any]) -> Dict[str, Any]:
     """Handle callbacks poll request."""
-    callbacks = await get_callbacks()
+    callbacks = get_callbacks()
     if not callbacks or not callbacks.poll_hook:
         raise ValueError("Callback polling not supported")
     
