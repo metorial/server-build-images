@@ -95,8 +95,7 @@ async def load_user_server(args: Dict[str, Any]):
 
 async def handle_discover(event: Dict[str, Any]) -> Dict[str, Any]:
   try:
-    # Reset all promises for a new invocation context
-    config.reset_all()
+    config.reset_request_state()
     
     args = event.get('args', {})
     server, handlers, server_wrapper = await load_user_server(args)
@@ -155,8 +154,7 @@ async def handle_discover(event: Dict[str, Any]) -> Dict[str, Any]:
 async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
   """Handle MCP requests by directly calling handlers."""
   try:
-    # Reset all promises for a new invocation context
-    config.reset_all()
+    config.reset_request_state()
     
     args_raw = event.get('args', '{}')
     args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
@@ -325,8 +323,7 @@ async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
 
 async def handle_oauth_action(event: Dict[str, Any]) -> Dict[str, Any]:
   try:
-    # Reset all promises for a new invocation context
-    config.reset_all()
+    config.reset_request_state()
     
     _, _, _ = await load_user_server({})
     
@@ -362,8 +359,7 @@ async def handle_oauth_action(event: Dict[str, Any]) -> Dict[str, Any]:
 
 async def handle_callbacks_action(event: Dict[str, Any]) -> Dict[str, Any]:
   try:
-    # Reset all promises for a new invocation context
-    config.reset_all()
+    config.reset_request_state()
     
     _, _, _ = await load_user_server({})
     

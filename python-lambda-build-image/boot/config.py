@@ -2,10 +2,10 @@
 from .promise import ProgrammablePromise
 from typing import Any, Dict
 
-# Create isolated promise instances for each scope
 current_oauth = ProgrammablePromise()
 current_server = ProgrammablePromise()
 current_hook = ProgrammablePromise()
+
 current_args = ProgrammablePromise()
 
 def set_mcp_auth(value: Any) -> None:
@@ -40,10 +40,6 @@ def get_args() -> Dict[str, Any]:
     """Get the configuration arguments (synchronously, returns resolved value or empty dict)."""
     return current_args.value if current_args.value is not None else {}
 
-def reset_all() -> None:
-    """Reset all promises for a new invocation context."""
-    global current_oauth, current_server, current_hook, current_args
-    current_oauth = ProgrammablePromise()
-    current_server = ProgrammablePromise()
-    current_hook = ProgrammablePromise()
+def reset_request_state() -> None:
+    global current_args
     current_args = ProgrammablePromise()
