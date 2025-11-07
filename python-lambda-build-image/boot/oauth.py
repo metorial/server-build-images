@@ -1,6 +1,7 @@
 """OAuth handling for Metorial MCP servers."""
 from typing import Any, Dict, Optional, Callable
 import inspect
+import asyncio
 
 from . import config
 
@@ -32,20 +33,25 @@ def set_oauth(handler: OAuthHandler):
     """Register the OAuth handler."""
     config.set_mcp_auth(handler)
 
-def get_oauth() -> Optional[OAuthHandler]:
-    """Get the registered OAuth handler."""
-    return config.get_mcp_auth()
+async def get_oauth() -> Optional[OAuthHandler]:
+    """Get the registered OAuth handler with timeout."""
+    try:
+        oauth_promise = config.get_mcp_auth()
+        result = await asyncio.wait_for(oauth_promise, timeout=0.5)
+        return result
+    except asyncio.TimeoutError:
+        return None
 
 async def handle_oauth_get() -> Dict[str, Any]:
     """Handle OAuth get request."""
-    oauth = get_oauth()
+    oauth = await get_oauth()
     if not oauth:
         return {"enabled": False, "hasForm": False}
     return {"enabled": True, "hasForm": oauth.get_auth_form is not None}
 
 async def handle_oauth_authorization_url(input_data: Dict[str, Any]) -> Dict[str, Any]:
     """Handle OAuth authorization URL request."""
-    oauth = get_oauth()
+    oauth = await get_oauth()
     if not oauth:
         raise ValueError("OAuth not configured")
     
@@ -56,7 +62,7 @@ async def handle_oauth_authorization_url(input_data: Dict[str, Any]) -> Dict[str
 
 async def handle_oauth_authorization_form(input_data: Dict[str, Any]) -> Dict[str, Any]:
     """Handle OAuth authorization form request."""
-    oauth = get_oauth()
+    oauth = await get_oauth()
     if not oauth or not oauth.get_auth_form:
         raise ValueError("OAuth form not available")
     
@@ -65,7 +71,7 @@ async def handle_oauth_authorization_form(input_data: Dict[str, Any]) -> Dict[st
 
 async def handle_oauth_callback(input_data: Dict[str, Any]) -> Dict[str, Any]:
     """Handle OAuth callback request."""
-    oauth = get_oauth()
+    oauth = await get_oauth()
     if not oauth:
         raise ValueError("OAuth not configured")
     
@@ -74,7 +80,7 @@ async def handle_oauth_callback(input_data: Dict[str, Any]) -> Dict[str, Any]:
 
 async def handle_oauth_refresh(input_data: Dict[str, Any]) -> Dict[str, Any]:
     """Handle OAuth token refresh request."""
-    oauth = get_oauth()
+    oauth = await get_oauth()
     if not oauth or not oauth.refresh_access_token:
         raise ValueError("OAuth refresh not supported")
     

@@ -59,7 +59,7 @@ class LogCapture:
     
     return self.logs
 
-def load_user_server(args: Dict[str, Any]):
+async def load_user_server(args: Dict[str, Any]):
   global _user_module_loaded, _server, _handlers
   
   config.set_args(args)
@@ -75,8 +75,9 @@ def load_user_server(args: Dict[str, Any]):
       spec.loader.exec_module(module)
       _user_module_loaded = True
   
-  server_wrapper = config.get_server()
-  if server_wrapper is None:
+  try:
+    server_wrapper = await asyncio.wait_for(config.get_server(), timeout=0.5)
+  except asyncio.TimeoutError:
     raise RuntimeError("No MCP server found. Did you call metorial.create_server()?")
   
   _server = server_wrapper.mcp_server
@@ -94,8 +95,11 @@ def load_user_server(args: Dict[str, Any]):
 
 async def handle_discover(event: Dict[str, Any]) -> Dict[str, Any]:
   try:
+    # Reset all promises for a new invocation context
+    config.reset_all()
+    
     args = event.get('args', {})
-    server, handlers, server_wrapper = load_user_server(args)
+    server, handlers, server_wrapper = await load_user_server(args)
     
     tools = []
     resource_templates = []
@@ -151,10 +155,13 @@ async def handle_discover(event: Dict[str, Any]) -> Dict[str, Any]:
 async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
   """Handle MCP requests by directly calling handlers."""
   try:
+    # Reset all promises for a new invocation context
+    config.reset_all()
+    
     args_raw = event.get('args', '{}')
     args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
     
-    server, handlers, server_wrapper = load_user_server(args)
+    server, handlers, server_wrapper = await load_user_server(args)
     
     messages_raw = event.get('messages', [])
     
@@ -318,7 +325,10 @@ async def handle_mcp_request(event: Dict[str, Any]) -> Dict[str, Any]:
 
 async def handle_oauth_action(event: Dict[str, Any]) -> Dict[str, Any]:
   try:
-    _, _, _ = load_user_server({})
+    # Reset all promises for a new invocation context
+    config.reset_all()
+    
+    _, _, _ = await load_user_server({})
     
     oauth_action = event.get('oauthAction')
     oauth_input = event.get('oauthInput', {})
@@ -352,7 +362,10 @@ async def handle_oauth_action(event: Dict[str, Any]) -> Dict[str, Any]:
 
 async def handle_callbacks_action(event: Dict[str, Any]) -> Dict[str, Any]:
   try:
-    _, _, _ = load_user_server({})
+    # Reset all promises for a new invocation context
+    config.reset_all()
+    
+    _, _, _ = await load_user_server({})
     
     callback_action = event.get('callbackAction')
     callback_input = event.get('callbackInput', {})
