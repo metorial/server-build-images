@@ -286,10 +286,8 @@ def create_server(info: Dict[str, str]):
   mcp_server.version = version
   server_wrapper = ServerWrapper(mcp_server, name, version)
   _global_server_wrapper = server_wrapper
-  
-  import builtins
-  builtins.__metorial_server__ = mcp_server
-  builtins.__metorial_server_wrapper__ = server_wrapper
+
+  config.set_server(server_wrapper)
   
   return server_wrapper
 

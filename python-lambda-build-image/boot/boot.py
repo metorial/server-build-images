@@ -4,7 +4,6 @@ import json
 import sys
 import os
 import importlib.util
-import builtins
 from typing import Any, Dict, Optional
 from io import StringIO
 
@@ -76,13 +75,11 @@ def load_user_server(args: Dict[str, Any]):
       spec.loader.exec_module(module)
       _user_module_loaded = True
   
-  _server = getattr(builtins, '__metorial_server__', None)
-  if _server is None:
+  server_wrapper = config.get_server()
+  if server_wrapper is None:
     raise RuntimeError("No MCP server found. Did you call metorial.create_server()?")
   
-  server_wrapper = getattr(builtins, '__metorial_server_wrapper__', None)
-  if server_wrapper is None:
-    raise RuntimeError("No server wrapper found. Did you call metorial.create_server()?")
+  _server = server_wrapper.mcp_server
   
   _handlers = {
     'list_tools': server_wrapper._list_tools,
