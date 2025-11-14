@@ -9,8 +9,10 @@ export let discover = async (client: Client) => {
   try {
     let toolsRes = await client.listTools();
     tools.push(...toolsRes.tools);
-    while (toolsRes.nextPageToken) {
-      toolsRes = await client.listTools({ pageToken: toolsRes.nextPageToken });
+    while ((toolsRes._meta as any)?.progressToken) {
+      toolsRes = await client.listTools({
+        progressToken: toolsRes._meta!.progressToken
+      } as any);
       tools.push(...toolsRes.tools);
     }
   } catch (e) {}
@@ -18,10 +20,10 @@ export let discover = async (client: Client) => {
   try {
     let resourceTemplatesRes = await client.listResourceTemplates();
     resourceTemplates.push(...resourceTemplatesRes.resourceTemplates);
-    while (resourceTemplatesRes.nextPageToken) {
+    while ((resourceTemplatesRes._meta as any)?.progressToken) {
       resourceTemplatesRes = await client.listResourceTemplates({
-        pageToken: resourceTemplatesRes.nextPageToken
-      });
+        pageToken: resourceTemplatesRes._meta!.progressToken
+      } as any);
       resourceTemplates.push(...resourceTemplatesRes.resourceTemplates);
     }
   } catch (e) {}
@@ -29,8 +31,10 @@ export let discover = async (client: Client) => {
   try {
     let promptsRes = await client.listPrompts();
     prompts.push(...promptsRes.prompts);
-    while (promptsRes.nextPageToken) {
-      promptsRes = await client.listPrompts({ pageToken: promptsRes.nextPageToken });
+    while ((promptsRes._meta as any)?.progressToken) {
+      promptsRes = await client.listPrompts({
+        pageToken: promptsRes._meta!.progressToken
+      } as any);
       prompts.push(...promptsRes.prompts);
     }
   } catch (e) {}
